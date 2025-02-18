@@ -311,6 +311,7 @@ class GameBoard(Screen):
 
 class TicTacToeApp(App):
     def build(self):
+        from kivy.uix.screenmanager import ScreenManager
         sm = ScreenManager()
         sm.add_widget(StartScreen(name="start"))
         sm.add_widget(NameInputScreen(name="name_input"))
