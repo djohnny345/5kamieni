@@ -119,6 +119,7 @@ class GameBoard(Screen):
         self.player1_score = 0
         self.player2_score = 0
         self.current_player = "O"
+        self.move_history = []  # Historia ruchów
 
         # Główny layout
         self.layout = FloatLayout()
@@ -145,70 +146,97 @@ class GameBoard(Screen):
                                  pos_hint={"center_x": 0.5, "top": 0.9})
         self.layout.add_widget(self.label_score)
 
-        # 📌 **Siatka przycisków** (dynamiczna)
+        # Siatka przycisków
         self.grid_layout = GridLayout(cols=self.cols, rows=self.rows, spacing=1,
                                       size_hint=(0.55, 0.55),
                                       pos_hint={"center_x": 0.49, "center_y": 0.45})
         self.layout.add_widget(self.grid_layout)
 
         # Dodaj przycisk menu w prawym górnym rogu
-        self.menu_button = Button(text="Menu", size_hint=(None, None), size=(100, 50), pos_hint={"right": 1, "top": 1})
+        self.menu_button = Button(text="Menu", size_hint=(None, None), size=(100, 50))
         self.menu_button.bind(on_press=self.show_menu)
+        self.menu_button.pos_hint = {"right": 1, "top": 1}  # Ustawienie w prawym górnym rogu
         self.layout.add_widget(self.menu_button)
+
+        # Inne przyciski w siatce gry
         self.buttons = {}
         for row in range(self.rows):
             for col in range(self.cols):
                 button = Button(size_hint=(1, 1))  # Automatyczne skalowanie
                 button.background_normal = ""
                 button.background_down = ""
-                button.background_color = (0, 0, 0, 0)
+                button.background_color = (0, 0, 0, 0)  # Przezroczyste tło
                 button.bind(on_press=self.on_button_click)
                 self.buttons[(row, col)] = button
                 self.grid_layout.add_widget(button)
 
-
-        # 📌 **Obsługa zmiany rozmiaru okna**
-        EventLoop.window.bind(on_resize=self.on_window_resize)
-
-    def on_window_resize(self, instance, width, height):
-        """ Aktualizuje siatkę przycisków przy zmianie rozmiaru okna. """
-        self.grid_layout.cols = self.cols
-        self.grid_layout.rows = self.rows
-        self.grid_layout.spacing = min(width, height) * 0.005  # Dynamiczne odstępy
-
-    def on_button_click(self, instance):
-        if instance.text == "":
-            instance.text = self.current_player
-            instance.disabled = True
-
-            if self.check_winner():
-                self.handle_winner(self.current_player)
-
-            self.current_player = "X" if self.current_player == "O" else "O"
-            self.update_player_names()
-
     def update_player_names(self):
+        """Metoda aktualizująca tekst na pasku graczy."""
         if self.current_player == "O":
-            self.label_players.text = f"[color=00ff00]{self.player1_name} [/color](O) vs {self.player2_name} (X)"
+            self.label_players.text = f"{self.player1_name} (O) vs {self.player2_name} (X)"
         else:
-            self.label_players.text = f"{self.player1_name} (O) vs [color=00ff00]{self.player2_name} [/color](X)"
-        self.label_players.markup = True
+            self.label_players.text = f"{self.player1_name} (X) vs {self.player2_name} (O)"
 
+    def show_menu(self, instance):
+        content = BoxLayout(orientation="vertical", spacing=10)
+
+        resume_button = Button(text="Powrót do gry", font_size=24)
+        resume_button.bind(on_press=self.resume_game)
+
+        undo_button = Button(text="Cofnij ruch", font_size=24)
+        undo_button.bind(on_press=self.undo_move)
+
+        main_menu_button = Button(text="Powrót do menu głównego", font_size=24)
+        main_menu_button.bind(on_press=self.return_to_menu)
+
+        content.add_widget(resume_button)
+        content.add_widget(undo_button)
+        content.add_widget(main_menu_button)
+
+        self.popup = Popup(title="Menu", content=content, size_hint=(0.5, 0.5))
+        self.popup.open()
+
+    def resume_game(self, instance):
+        self.popup.dismiss()
+
+    def undo_move(self, instance):
+        if self.move_history:
+            # Cofnij ostatni ruch
+            last_move = self.move_history.pop()
+            row, col, player_symbol = last_move
+
+            # Wyczyszczenie komórki
+            self.buttons[(row, col)].text = ""
+            self.buttons[(row, col)].disabled = False  # Ponownie aktywuj przycisk
+
+            # Przywrócenie tury dla ostatniego gracza
+            self.current_player = player_symbol
+            self.update_player_names()
+
+            self.popup.dismiss()
+
+    def return_to_menu(self, instance):
+        self.popup.dismiss()
+        self.manager.current = "start"  # Zakładając, że ekran główny ma nazwę "start"
 
     def on_button_click(self, instance):
-        if instance.text == "":
+        if instance.text == "":  # Tylko, gdy komórka jest pusta
             instance.text = self.current_player
-            instance.disabled = True
+            instance.disabled = True  # Zablokowanie komórki po kliknięciu
+
+            # Zapisz ruch w historii
+            # Zmieniamy zapisywanie ruchu, by używać indeksów row i col, zamiast pos_hint
+            for (row, col), button in self.buttons.items():
+                if button == instance:
+                    self.move_history.append((row, col, self.current_player))
 
             if self.check_winner():
                 self.handle_winner(self.current_player)
 
+            # Zmiana gracza
             self.current_player = "X" if self.current_player == "O" else "O"
-            if self.current_player == "O":
-                self.label_players.text = f"[color=green]{self.player1_name} (O)[/color] vs {self.player2_name} (X)"
-            else:
-                self.label_players.text = f"{self.player1_name} (O) vs [color=green]{self.player2_name} (X)[/color]"
             self.update_player_names()
+
     def check_winner(self):
         # Sprawdzenie wierszy
         for row in range(self.rows):
