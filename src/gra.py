@@ -6,6 +6,9 @@ from kivy.uix.popup import Popup
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.core.window import Window
+from kivy.uix.floatlayout import FloatLayout
+
 
 class StartScreen(Screen):
     def __init__(self, **kwargs):
@@ -18,7 +21,9 @@ class StartScreen(Screen):
         start_button.bind(on_press=self.ask_player1_name)
         layout.add_widget(start_button)
 
-
+        about_button = Button(text="Od autora", font_size=24, size_hint=(1, 0.3))
+        about_button.bind(on_press=self.show_about)
+        layout.add_widget(about_button)
 
         exit_button = Button(text="Zamknij grę", font_size=24, size_hint=(1, 0.3))
         exit_button.bind(on_press=self.exit_game)
@@ -26,12 +31,41 @@ class StartScreen(Screen):
 
         self.add_widget(layout)
 
+    def show_about(self, instance):
+        self.manager.current = "about"
+
     def ask_player1_name(self, instance):
         self.manager.current = "name_input"
         self.manager.get_screen("name_input").ask_for_name(1)
 
     def exit_game(self, instance):
         App.get_running_app().stop()
+
+class AboutScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
+
+        # Próba wczytania pliku 'odautora.txt'
+        try:
+            with open("odautora.txt", "r", encoding="utf-8") as file:
+                about_text = file.read()
+        except FileNotFoundError:
+            about_text = "Nie znaleziono pliku 'odautora.txt'."
+
+        # Wyświetlenie tekstu z pliku
+        about_label = Label(text=about_text, font_size=18, size_hint=(1, None), height=400)
+        layout.add_widget(about_label)
+
+        # Przycisk powrotu
+        back_button = Button(text="Powrót", font_size=24, size_hint=(1, 0.2))
+        back_button.bind(on_press=self.go_back)
+        layout.add_widget(back_button)
+
+        self.add_widget(layout)
+
+    def go_back(self, instance):
+        self.manager.current = "start"
 
 class NameInputScreen(Screen):
     def __init__(self, **kwargs):
@@ -68,6 +102,11 @@ class NameInputScreen(Screen):
                 game_screen.update_player_names()
                 self.manager.current = "game"
 
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.base import EventLoop
+
+
 class GameBoard(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -75,47 +114,86 @@ class GameBoard(Screen):
         self.player1_name = "Gracz 1"
         self.player2_name = "Gracz 2"
 
-        self.background = Image(source="school_blackboard.jpg", allow_stretch=True, keep_ratio=False)
-        self.add_widget(self.background)
-
         self.rows = 8
         self.cols = 12
-        self.button_size = 29
-        self.spacing = 13
-
-        self.label_players = Label(text=f"{self.player1_name} (O) vs {self.player2_name} (X)",
-                                   font_size=24, size_hint=(None, None), size=(400, 50),
-                                   pos=(400, 550))  # Dodana nazwa graczy
-        self.add_widget(self.label_players)
-
-        start_x = 125
-        start_y = 420
-
-        self.buttons = {}
-        for row in range(self.rows):
-            for col in range(self.cols):
-                button = Button(size_hint=(None, None), size=(self.button_size, self.button_size))
-                button.pos = (start_x + col * (self.button_size + self.spacing),
-                              start_y - row * (self.button_size + self.spacing))
-                button.bind(on_press=self.on_button_click)
-                self.buttons[(row, col)] = button
-                self.add_widget(button)
-
-        self.label_score = Label(text="0 : 0", size_hint=(None, None), size=(200, 50),
-                                 pos=(500, 500))
-        self.add_widget(self.label_score)
-
         self.player1_score = 0
         self.player2_score = 0
         self.current_player = "O"
 
+        # Główny layout
+        self.layout = FloatLayout()
+        self.add_widget(self.layout)
+
+        # Tło
+        self.background = Image(source="school_blackboard.jpg",
+                                allow_stretch=True, keep_ratio=False,
+                                size_hint=(1, 1))
+        self.layout.add_widget(self.background)
+
+        # Pasek graczy
+        self.label_players = Label(text=f"{self.player1_name} (O) vs {self.player2_name} (X)",
+                                   font_size=24,
+                                   size_hint=(None, None),
+                                   size=(400, 50),
+                                   pos_hint={"center_x": 0.5, "top": 0.95})
+        self.layout.add_widget(self.label_players)
+
+        # Wynik
+        self.label_score = Label(text="0 : 0",
+                                 size_hint=(None, None),
+                                 size=(200, 50),
+                                 pos_hint={"center_x": 0.5, "top": 0.9})
+        self.layout.add_widget(self.label_score)
+
+        # 📌 **Siatka przycisków** (dynamiczna)
+        self.grid_layout = GridLayout(cols=self.cols, rows=self.rows, spacing=1,
+                                      size_hint=(0.55, 0.55),
+                                      pos_hint={"center_x": 0.49, "center_y": 0.45})
+        self.layout.add_widget(self.grid_layout)
+
+        # Dodaj przycisk menu w prawym górnym rogu
+        self.menu_button = Button(text="Menu", size_hint=(None, None), size=(100, 50), pos_hint={"right": 1, "top": 1})
+        self.menu_button.bind(on_press=self.show_menu)
+        self.layout.add_widget(self.menu_button)
+        self.buttons = {}
+        for row in range(self.rows):
+            for col in range(self.cols):
+                button = Button(size_hint=(1, 1))  # Automatyczne skalowanie
+                button.background_normal = ""
+                button.background_down = ""
+                button.background_color = (0, 0, 0, 0)
+                button.bind(on_press=self.on_button_click)
+                self.buttons[(row, col)] = button
+                self.grid_layout.add_widget(button)
+
+
+        # 📌 **Obsługa zmiany rozmiaru okna**
+        EventLoop.window.bind(on_resize=self.on_window_resize)
+
+    def on_window_resize(self, instance, width, height):
+        """ Aktualizuje siatkę przycisków przy zmianie rozmiaru okna. """
+        self.grid_layout.cols = self.cols
+        self.grid_layout.rows = self.rows
+        self.grid_layout.spacing = min(width, height) * 0.005  # Dynamiczne odstępy
+
+    def on_button_click(self, instance):
+        if instance.text == "":
+            instance.text = self.current_player
+            instance.disabled = True
+
+            if self.check_winner():
+                self.handle_winner(self.current_player)
+
+            self.current_player = "X" if self.current_player == "O" else "O"
+            self.update_player_names()
+
     def update_player_names(self):
-        """ Aktualizuje wyświetlane nazwy graczy i ich kolor w zależności od tury """
         if self.current_player == "O":
             self.label_players.text = f"[color=00ff00]{self.player1_name} [/color](O) vs {self.player2_name} (X)"
         else:
             self.label_players.text = f"{self.player1_name} (O) vs [color=00ff00]{self.player2_name} [/color](X)"
         self.label_players.markup = True
+
 
     def on_button_click(self, instance):
         if instance.text == "":
@@ -209,6 +287,7 @@ class TicTacToeApp(App):
         sm.add_widget(StartScreen(name="start"))
         sm.add_widget(NameInputScreen(name="name_input"))
         sm.add_widget(GameBoard(name="game"))
+        sm.add_widget(AboutScreen(name="about"))
         return sm
 
 if __name__ == "__main__":
