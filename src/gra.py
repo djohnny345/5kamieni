@@ -147,9 +147,9 @@ class GameBoard(Screen):
         self.layout.add_widget(self.label_score)
 
         # Siatka przycisków
-        self.grid_layout = GridLayout(cols=self.cols, rows=self.rows, spacing=1,
-                                      size_hint=(0.55, 0.55),
-                                      pos_hint={"center_x": 0.49, "center_y": 0.45})
+        self.grid_layout = GridLayout(cols=self.cols, rows=self.rows, spacing=3,
+                                      size_hint=(0.51, 0.51),
+                                      pos_hint={"center_x": 0.53, "center_y": 0.45})
         self.layout.add_widget(self.grid_layout)
 
         # Dodaj przycisk menu w prawym górnym rogu
@@ -171,11 +171,12 @@ class GameBoard(Screen):
                 self.grid_layout.add_widget(button)
 
     def update_player_names(self):
-        """Metoda aktualizująca tekst na pasku graczy."""
+        """ Aktualizuje wyświetlane nazwy graczy i ich kolor w zależności od tury """
         if self.current_player == "O":
-            self.label_players.text = f"{self.player1_name} (O) vs {self.player2_name} (X)"
+            self.label_players.text = f"[color=00ff00]{self.player1_name} [/color](O) vs {self.player2_name} (X)"
         else:
-            self.label_players.text = f"{self.player1_name} (X) vs {self.player2_name} (O)"
+            self.label_players.text = f"{self.player1_name} (O) vs [color=00ff00]{self.player2_name} [/color](X)"
+        self.label_players.markup = True
 
     def show_menu(self, instance):
         content = BoxLayout(orientation="vertical", spacing=10)
